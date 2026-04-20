@@ -342,7 +342,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     state = get_state(user_id)
     data = query.data or ""
 
-    if data == "menu:back:home":
+    if data in {"menu:back:home", "menu:home"}:
         await render_home(update, state, edit=True)
         return
     if data == "menu:open:file":
@@ -407,7 +407,10 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         rows = []
         for item in REGISTRY.top_languages(include_auto=False)[:6]:
             rows.append([InlineKeyboardButton(item["label"], callback_data=f"file_result:translate:{item['code']}")])
-        rows.append([InlineKeyboardButton("Назад", callback_data="menu:back:home")])
+        rows.append([
+            InlineKeyboardButton("⬅️ К результату", callback_data="file_result:back:last"),
+            InlineKeyboardButton("🏠 Домой", callback_data="menu:home"),
+        ])
         await query.edit_message_text("Выбери новый язык для последнего результата", reply_markup=InlineKeyboardMarkup(rows))
         return
 
@@ -430,7 +433,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_file_mode_result(update, context, state)
         return
 
-    if data == "file_result:rerun:last":
+    if data in {"file_result:rerun:last", "file_result:back:last"}:
         if not state.last_job:
             await send_error(update, "Сначала отправь файл.")
             return

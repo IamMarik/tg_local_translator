@@ -79,11 +79,20 @@ def live_active_keyboard() -> InlineKeyboardMarkup:
 
 def file_result_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Кратко", callback_data="file_result:show:summary")],
-        [InlineKeyboardButton("Построчно", callback_data="file_result:show:bilingual")],
+        [
+            InlineKeyboardButton("🏠 Домой", callback_data="menu:home"),
+            InlineKeyboardButton("📁 Новый файл", callback_data="menu:open:file"),
+        ],
+        [
+            InlineKeyboardButton("Кратко", callback_data="file_result:show:summary"),
+            InlineKeyboardButton("Построчно", callback_data="file_result:show:bilingual"),
+        ],
         [InlineKeyboardButton("Стандарт", callback_data="file_result:show:standard")],
-        [InlineKeyboardButton("Другой язык", callback_data="file_result:open:lang")],
-        [InlineKeyboardButton("Повторить", callback_data="file_result:rerun:last")],
+        [
+            InlineKeyboardButton("🌍 Другой язык", callback_data="file_result:open:lang"),
+            InlineKeyboardButton("⚙️ Режим файла", callback_data="file:open:mode"),
+        ],
+        [InlineKeyboardButton("🔁 Повторить", callback_data="file_result:rerun:last")],
     ])
 
 

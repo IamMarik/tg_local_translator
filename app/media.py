@@ -8,7 +8,9 @@ class MediaError(RuntimeError):
     pass
 
 
-def extract_audio_to_wav(input_path: Path, output_path: Path, audio_filter: str | None = None) -> Path:
+def extract_audio_to_wav(
+    input_path: Path, output_path: Path, audio_filter: str | None = None
+) -> Path:
     cmd = [
         "ffmpeg",
         "-y",

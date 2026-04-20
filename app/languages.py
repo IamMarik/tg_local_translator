@@ -7,11 +7,21 @@ from typing import Any
 
 class LanguageRegistry:
     def __init__(self, data_dir: Path) -> None:
-        self._languages = json.loads((data_dir / "languages.json").read_text(encoding="utf-8"))
-        self._aliases = json.loads((data_dir / "language_aliases.json").read_text(encoding="utf-8"))
-        self._popular_pairs = json.loads((data_dir / "popular_live_pairs.json").read_text(encoding="utf-8"))
+        self._languages = json.loads(
+            (data_dir / "languages.json").read_text(encoding="utf-8")
+        )
+        self._aliases = json.loads(
+            (data_dir / "language_aliases.json").read_text(encoding="utf-8")
+        )
+        self._popular_pairs = json.loads(
+            (data_dir / "popular_live_pairs.json").read_text(encoding="utf-8")
+        )
         emoji_path = data_dir / "language_emojis.json"
-        self._emojis = json.loads(emoji_path.read_text(encoding="utf-8")) if emoji_path.exists() else {}
+        self._emojis = (
+            json.loads(emoji_path.read_text(encoding="utf-8"))
+            if emoji_path.exists()
+            else {}
+        )
         self._by_code = {row["code"]: row["label"] for row in self._languages}
 
     @property

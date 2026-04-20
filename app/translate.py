@@ -37,8 +37,14 @@ class OllamaTranslator:
         data = resp.json()
         return data.get("response", "").strip()
 
-    def translate(self, text: str, source_language: Optional[str], target_language: str) -> str:
-        src = self.registry.label(source_language) if source_language else "auto-detected source language"
+    def translate(
+        self, text: str, source_language: Optional[str], target_language: str
+    ) -> str:
+        src = (
+            self.registry.label(source_language)
+            if source_language
+            else "auto-detected source language"
+        )
         dst = self.registry.label(target_language)
         prompt = (
             f"Translate the following text from {src} to {dst}. "
@@ -55,7 +61,9 @@ class OllamaTranslator:
         )
         return self._generate(self.summary_model, prompt)
 
-    def correct_transcript(self, text: str, language: Optional[str], second_pass: bool = False) -> str:
+    def correct_transcript(
+        self, text: str, language: Optional[str], second_pass: bool = False
+    ) -> str:
         if not text.strip():
             return text
         target = self.registry.label(language) if language else "the source language"

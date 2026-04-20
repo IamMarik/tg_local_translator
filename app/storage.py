@@ -30,4 +30,6 @@ class JsonStorage:
         with self._lock:
             data = self._read_all()
             data[str(user_id)] = state.to_dict()
-            self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            )

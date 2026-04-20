@@ -26,7 +26,9 @@ class Transcriber:
     def model(self) -> WhisperModel:
         return WhisperModel(self.model_size, compute_type=self.compute_type)
 
-    def transcribe_result(self, audio_path: Path, language: str | None = None) -> TranscriptionResult:
+    def transcribe_result(
+        self, audio_path: Path, language: str | None = None
+    ) -> TranscriptionResult:
         segments, info = self.model.transcribe(
             str(audio_path),
             language=language,
@@ -35,7 +37,9 @@ class Transcriber:
             condition_on_previous_text=True,
         )
         segment_list = list(segments)
-        text = " ".join(segment.text.strip() for segment in segment_list if segment.text.strip()).strip()
+        text = " ".join(
+            segment.text.strip() for segment in segment_list if segment.text.strip()
+        ).strip()
         detected = getattr(info, "language", None)
         language_probability = float(getattr(info, "language_probability", 1.0) or 1.0)
 
@@ -55,9 +59,19 @@ class Transcriber:
             if getattr(segment, "compression_ratio", None) is not None
         ]
 
-        avg_logprob = sum(avg_logprob_values) / len(avg_logprob_values) if avg_logprob_values else 0.0
-        no_speech_prob = sum(no_speech_values) / len(no_speech_values) if no_speech_values else 0.0
-        compression_ratio = sum(compression_values) / len(compression_values) if compression_values else 0.0
+        avg_logprob = (
+            sum(avg_logprob_values) / len(avg_logprob_values)
+            if avg_logprob_values
+            else 0.0
+        )
+        no_speech_prob = (
+            sum(no_speech_values) / len(no_speech_values) if no_speech_values else 0.0
+        )
+        compression_ratio = (
+            sum(compression_values) / len(compression_values)
+            if compression_values
+            else 0.0
+        )
 
         return TranscriptionResult(
             text=text,
@@ -68,6 +82,8 @@ class Transcriber:
             compression_ratio=compression_ratio,
         )
 
-    def transcribe(self, audio_path: Path, language: str | None = None) -> tuple[str, str | None]:
+    def transcribe(
+        self, audio_path: Path, language: str | None = None
+    ) -> tuple[str, str | None]:
         result = self.transcribe_result(audio_path, language=language)
         return result.text, result.language

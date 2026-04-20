@@ -46,13 +46,19 @@ def load_config() -> AppConfig:
 
     return AppConfig(
         bot_token=token,
-        ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/"),
+        ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip(
+            "/"
+        ),
         ollama_translate_model=translate_model,
         ollama_summary_model=os.getenv("OLLAMA_SUMMARY_MODEL", translate_model),
         ollama_correction_model=os.getenv("OLLAMA_CORRECTION_MODEL", translate_model),
         whisper_model_size=os.getenv("WHISPER_MODEL_SIZE", "small"),
-        whisper_model_size_file=os.getenv("WHISPER_MODEL_SIZE_FILE", os.getenv("WHISPER_MODEL_SIZE", "small")),
-        whisper_model_size_live=os.getenv("WHISPER_MODEL_SIZE_LIVE", os.getenv("WHISPER_MODEL_SIZE", "small")),
+        whisper_model_size_file=os.getenv(
+            "WHISPER_MODEL_SIZE_FILE", os.getenv("WHISPER_MODEL_SIZE", "small")
+        ),
+        whisper_model_size_live=os.getenv(
+            "WHISPER_MODEL_SIZE_LIVE", os.getenv("WHISPER_MODEL_SIZE", "small")
+        ),
         whisper_compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
         default_ui_language=os.getenv("DEFAULT_UI_LANGUAGE", "ru"),
         max_file_size_mb=int(os.getenv("MAX_FILE_SIZE_MB", "150")),
@@ -62,5 +68,6 @@ def load_config() -> AppConfig:
         storage_file=root / "storage" / "settings.json",
         data_dir=root / "data",
         audio_filter=os.getenv("AUDIO_FILTER", "").strip(),
-        enable_stt_correction=os.getenv("ENABLE_STT_CORRECTION", "true").lower() == "true",
+        enable_stt_correction=os.getenv("ENABLE_STT_CORRECTION", "true").lower()
+        == "true",
     )

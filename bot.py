@@ -77,7 +77,9 @@ def normalized_change_ratio(before: str, after: str) -> float:
     return 1.0 - difflib.SequenceMatcher(None, before or "", after or "").ratio()
 
 
-def is_low_confidence_transcript(result: TranscriptionResult, source_language: Optional[str] = None) -> bool:
+def is_low_confidence_transcript(
+    result: TranscriptionResult, source_language: Optional[str] = None
+) -> bool:
     text = (result.text or "").strip()
     language = source_language or result.language
 
@@ -96,7 +98,11 @@ def is_low_confidence_transcript(result: TranscriptionResult, source_language: O
     return False
 
 
-def maybe_correct_transcript(result: TranscriptionResult, source_language: Optional[str] = None, always_for_file: bool = False) -> str:
+def maybe_correct_transcript(
+    result: TranscriptionResult,
+    source_language: Optional[str] = None,
+    always_for_file: bool = False,
+) -> str:
     text = result.text
     language = source_language or result.language
 
@@ -105,7 +111,9 @@ def maybe_correct_transcript(result: TranscriptionResult, source_language: Optio
     if language != "vi":
         return text
 
-    should_run_first_pass = always_for_file or is_low_confidence_transcript(result, source_language=language)
+    should_run_first_pass = always_for_file or is_low_confidence_transcript(
+        result, source_language=language
+    )
     if not should_run_first_pass:
         return text
 
@@ -118,9 +126,14 @@ def maybe_correct_transcript(result: TranscriptionResult, source_language: Optio
     if not corrected:
         return text
 
-    if is_low_confidence_transcript(result, source_language=language) and normalized_change_ratio(text, corrected) < 0.03:
+    if (
+        is_low_confidence_transcript(result, source_language=language)
+        and normalized_change_ratio(text, corrected) < 0.03
+    ):
         try:
-            corrected_second = TRANSLATOR.correct_transcript(corrected, language, second_pass=True)
+            corrected_second = TRANSLATOR.correct_transcript(
+                corrected, language, second_pass=True
+            )
             if corrected_second:
                 corrected = corrected_second
         except Exception as exc:  # noqa: BLE001
@@ -131,8 +144,13 @@ def maybe_correct_transcript(result: TranscriptionResult, source_language: Optio
 
 # ---------- texts ----------
 
+
 def home_text(state: UserState) -> str:
-    target = resolve_target_language(state, None, REGISTRY) if state.settings.target_language_source == "manual" else state.settings.target_language
+    target = (
+        resolve_target_language(state, None, REGISTRY)
+        if state.settings.target_language_source == "manual"
+        else state.settings.target_language
+    )
     lines = [
         "Выбери сценарий:",
         "- Файл: обработка видео и аудио с полными текстами",
@@ -143,9 +161,19 @@ def home_text(state: UserState) -> str:
     ]
     if state.live_state.is_active:
         if state.live_state.mode == LiveMode.FIXED.value:
-            lines.extend(["", f"Live статус: {REGISTRY.pair_label(state.live_state.fixed_source_language, state.live_state.fixed_target_language, '→')}"])
+            lines.extend(
+                [
+                    "",
+                    f"Live статус: {REGISTRY.pair_label(state.live_state.fixed_source_language, state.live_state.fixed_target_language, '→')}",
+                ]
+            )
         else:
-            lines.extend(["", f"Live статус: {REGISTRY.pair_label(state.live_state.lang_a, state.live_state.lang_b, '↔')}"])
+            lines.extend(
+                [
+                    "",
+                    f"Live статус: {REGISTRY.pair_label(state.live_state.lang_a, state.live_state.lang_b, '↔')}",
+                ]
+            )
     return "\n".join(lines)
 
 
@@ -170,6 +198,7 @@ def help_text() -> str:
 
 
 # ---------- helpers ----------
+
 
 def get_state(user_id: int) -> UserState:
     state = STORAGE.get_user_state(user_id)
@@ -210,19 +239,23 @@ async def render_home(update: Update, state: UserState, edit: bool = False) -> N
 async def render_file_menu(update: Update, state: UserState, edit: bool = True) -> None:
     text = file_menu_text(state)
     if edit and update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=file_menu_keyboard())
+        await update.callback_query.edit_message_text(
+            text, reply_markup=file_menu_keyboard()
+        )
     else:
-        await update.effective_message.reply_text(text, reply_markup=file_menu_keyboard())
+        await update.effective_message.reply_text(
+            text, reply_markup=file_menu_keyboard()
+        )
 
 
 async def send_error(update: Update, text: str) -> None:
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.message.reply_text(text, reply_markup=home_keyboard())
+        await update.callback_query.message.reply_text(
+            text, reply_markup=home_keyboard()
+        )
     else:
         await update.effective_message.reply_text(text, reply_markup=home_keyboard())
-
-
 
 
 def reset_transient_state(state: UserState) -> None:
@@ -261,17 +294,23 @@ async def reply_with_home(message: Message, text: str) -> None:
     await message.reply_text(text, reply_markup=home_keyboard())
 
 
-async def send_processing_error(update: Update, state: UserState, exc: Exception) -> None:
+async def send_processing_error(
+    update: Update, state: UserState, exc: Exception
+) -> None:
     reset_transient_state(state)
     save_state(update.effective_user.id, state)
-    await reply_with_home(update.effective_message, f"Ошибка обработки:\n{humanize_processing_error(exc)}")
+    await reply_with_home(
+        update.effective_message, f"Ошибка обработки:\n{humanize_processing_error(exc)}"
+    )
 
 
 def build_status_text(stage: str) -> str:
     return f"Файл принят.\n{stage}"
 
 
-async def download_telegram_file(update: Update, context: ContextTypes.DEFAULT_TYPE, dest_path: Path) -> Path:
+async def download_telegram_file(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, dest_path: Path
+) -> Path:
     message = update.effective_message
     file_obj = None
     filename = dest_path.name
@@ -300,20 +339,30 @@ async def download_telegram_file(update: Update, context: ContextTypes.DEFAULT_T
     return final_path
 
 
-def process_file_pipeline(input_path: Path, state: UserState, telegram_locale: Optional[str], user_id: int) -> LastJob:
+def process_file_pipeline(
+    input_path: Path, state: UserState, telegram_locale: Optional[str], user_id: int
+) -> LastJob:
     audio_path = CONFIG.temp_dir / f"{uuid.uuid4().hex}.wav"
-    extract_audio_to_wav(input_path, audio_path, audio_filter=CONFIG.audio_filter or None)
+    extract_audio_to_wav(
+        input_path, audio_path, audio_filter=CONFIG.audio_filter or None
+    )
     file_result = FILE_TRANSCRIBER.transcribe_result(audio_path)
     if file_result.language == "vi":
         file_result = FILE_TRANSCRIBER.transcribe_result(audio_path, language="vi")
     source_language = file_result.language
-    transcript_text = maybe_correct_transcript(file_result, source_language=source_language, always_for_file=True)
+    transcript_text = maybe_correct_transcript(
+        file_result, source_language=source_language, always_for_file=True
+    )
     if not transcript_text:
         raise RuntimeError("Не удалось распознать речь")
 
     target_language = target_language_for_user(state, telegram_locale)
-    translated_text = TRANSLATOR.translate(transcript_text, source_language, target_language)
-    summary_text = TRANSLATOR.summarize(translated_text or transcript_text, target_language)
+    translated_text = TRANSLATOR.translate(
+        transcript_text, source_language, target_language
+    )
+    summary_text = TRANSLATOR.summarize(
+        translated_text or transcript_text, target_language
+    )
     bilingual_text = build_bilingual_text(
         LastJob(
             job_id="temp",
@@ -344,17 +393,27 @@ def process_file_pipeline(input_path: Path, state: UserState, telegram_locale: O
     )
 
 
-def process_live_pipeline(input_path: Path, state: UserState) -> tuple[str, str, str, Optional[str]]:
+def process_live_pipeline(
+    input_path: Path, state: UserState
+) -> tuple[str, str, str, Optional[str]]:
     audio_path = CONFIG.temp_dir / f"{uuid.uuid4().hex}.wav"
-    extract_audio_to_wav(input_path, audio_path, audio_filter=CONFIG.audio_filter or None)
+    extract_audio_to_wav(
+        input_path, audio_path, audio_filter=CONFIG.audio_filter or None
+    )
 
     live = state.live_state
     if live.mode == LiveMode.FIXED.value:
-        live_result = LIVE_TRANSCRIBER.transcribe_result(audio_path, language=live.fixed_source_language)
+        live_result = LIVE_TRANSCRIBER.transcribe_result(
+            audio_path, language=live.fixed_source_language
+        )
         source_language = live.fixed_source_language or "en"
-        original_text = maybe_correct_transcript(live_result, source_language=source_language)
+        original_text = maybe_correct_transcript(
+            live_result, source_language=source_language
+        )
         target_language = live.fixed_target_language or "en"
-        translated = TRANSLATOR.translate(original_text, source_language, target_language)
+        translated = TRANSLATOR.translate(
+            original_text, source_language, target_language
+        )
         return source_language, target_language, original_text, translated
 
     live_result = LIVE_TRANSCRIBER.transcribe_result(audio_path, language=None)
@@ -370,7 +429,9 @@ def process_live_pipeline(input_path: Path, state: UserState) -> tuple[str, str,
     return source_language, target_language, original_text, translated
 
 
-async def send_file_mode_result(update: Update, context: ContextTypes.DEFAULT_TYPE, state: UserState) -> None:
+async def send_file_mode_result(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, state: UserState
+) -> None:
     job = state.last_job
     if not job:
         await send_error(update, "Сначала отправь видео или аудио.")
@@ -390,11 +451,15 @@ async def send_file_mode_result(update: Update, context: ContextTypes.DEFAULT_TY
         message = build_summary_message(job, CONFIG.preview_chars)
         files = [job.translation_txt_path] if job.translation_txt_path else []
     else:
-        bilingual_preview = job.bilingual_text[: CONFIG.preview_chars] + ("..." if len(job.bilingual_text) > CONFIG.preview_chars else "")
+        bilingual_preview = job.bilingual_text[: CONFIG.preview_chars] + (
+            "..." if len(job.bilingual_text) > CONFIG.preview_chars else ""
+        )
         message = f"Построчно:\n{bilingual_preview}\n\nПолная версия приложена файлом."
         files = [job.bilingual_txt_path]
 
-    await update.effective_message.reply_text(message, reply_markup=file_result_keyboard())
+    await update.effective_message.reply_text(
+        message, reply_markup=file_result_keyboard()
+    )
     for path in files:
         if path and Path(path).exists():
             with open(path, "rb") as f:
@@ -407,7 +472,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     state = get_state(user.id)
     locale = user.language_code if user else None
     if state.settings.target_language_source != "manual":
-        state.settings.target_language = REGISTRY.locale_to_language(locale, default=CONFIG.default_ui_language)
+        state.settings.target_language = REGISTRY.locale_to_language(
+            locale, default=CONFIG.default_ui_language
+        )
     save_state(user.id, state)
     await render_home(update, state, edit=False)
 
@@ -431,7 +498,9 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await render_file_menu(update, state, edit=True)
         return
     if data == "menu:open:live":
-        await query.edit_message_text("Выбери режим live translate", reply_markup=live_mode_keyboard())
+        await query.edit_message_text(
+            "Выбери режим live translate", reply_markup=live_mode_keyboard()
+        )
         return
     if data == "menu:open:lang":
         await query.edit_message_text(
@@ -465,11 +534,15 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data.startswith("lang:set:"):
         value = data.split(":", 2)[2]
         if value == "other":
-            await query.message.reply_text("Пока здесь сделан быстрый выбор из основных языков. Остальные добавь в data/languages.json.")
+            await query.message.reply_text(
+                "Пока здесь сделан быстрый выбор из основных языков. Остальные добавь в data/languages.json."
+            )
             return
         if value == "auto":
             state.settings.target_language_source = "telegram_locale"
-            state.settings.target_language = REGISTRY.locale_to_language(update.effective_user.language_code, default="en")
+            state.settings.target_language = REGISTRY.locale_to_language(
+                update.effective_user.language_code, default="en"
+            )
         else:
             state.settings.target_language_source = "manual"
             state.settings.target_language = value
@@ -488,12 +561,26 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data == "file_result:open:lang":
         rows = []
         for item in REGISTRY.top_languages(include_auto=False)[:6]:
-            rows.append([InlineKeyboardButton(item["label"], callback_data=f"file_result:translate:{item['code']}")])
-        rows.append([
-            InlineKeyboardButton("⬅️ К результату", callback_data="file_result:back:last"),
-            InlineKeyboardButton("🏠 Домой", callback_data="menu:home"),
-        ])
-        await query.edit_message_text("Выбери новый язык для последнего результата", reply_markup=InlineKeyboardMarkup(rows))
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        item["label"],
+                        callback_data=f"file_result:translate:{item['code']}",
+                    )
+                ]
+            )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    "⬅️ К результату", callback_data="file_result:back:last"
+                ),
+                InlineKeyboardButton("🏠 Домой", callback_data="menu:home"),
+            ]
+        )
+        await query.edit_message_text(
+            "Выбери новый язык для последнего результата",
+            reply_markup=InlineKeyboardMarkup(rows),
+        )
         return
 
     if data.startswith("file_result:translate:"):
@@ -502,16 +589,25 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await send_error(update, "Сначала отправь файл.")
             return
         target_language = data.split(":", 2)[2]
-        translated = await asyncio.to_thread(TRANSLATOR.translate, job.transcript_text, job.source_language, target_language)
+        translated = await asyncio.to_thread(
+            TRANSLATOR.translate,
+            job.transcript_text,
+            job.source_language,
+            target_language,
+        )
         job.target_language = target_language
         job.translated_text = translated
-        job.summary_text = await asyncio.to_thread(TRANSLATOR.summarize, translated, target_language)
+        job.summary_text = await asyncio.to_thread(
+            TRANSLATOR.summarize, translated, target_language
+        )
         job.bilingual_text = build_bilingual_text(job, REGISTRY)
         write_text_file(Path(job.translation_txt_path), translated)
         write_text_file(Path(job.bilingual_txt_path), job.bilingual_text)
         state.last_job = job
         save_state(user_id, state)
-        await query.message.reply_text(f"Перевод обновлен: {REGISTRY.label(target_language)}")
+        await query.message.reply_text(
+            f"Перевод обновлен: {REGISTRY.label(target_language)}"
+        )
         await send_file_mode_result(update, context, state)
         return
 
@@ -568,42 +664,58 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             save_state(user_id, state)
             await query.edit_message_text(
                 "Выбери язык, с которого переводим",
-                reply_markup=language_keyboard(REGISTRY, "live_fixed_src:set", include_auto=True),
+                reply_markup=language_keyboard(
+                    REGISTRY, "live_fixed_src:set", include_auto=True
+                ),
             )
         else:
             builder.selecting = "lang_a"
             save_state(user_id, state)
             await query.edit_message_text(
                 "Выбери первый язык",
-                reply_markup=language_keyboard(REGISTRY, "live_pair_custom:set_a", include_auto=True),
+                reply_markup=language_keyboard(
+                    REGISTRY, "live_pair_custom:set_a", include_auto=True
+                ),
             )
         return
 
     if data.startswith("live_fixed_src:set:"):
         value = data.split(":", 2)[2]
         if value == "other":
-            await query.message.reply_text("Добавь язык в data/languages.json и aliases в data/language_aliases.json.")
+            await query.message.reply_text(
+                "Добавь язык в data/languages.json и aliases в data/language_aliases.json."
+            )
             return
         if value == "auto":
-            value = REGISTRY.locale_to_language(update.effective_user.language_code, default="en")
+            value = REGISTRY.locale_to_language(
+                update.effective_user.language_code, default="en"
+            )
         state.live_builder.fixed_source_language = value
         save_state(user_id, state)
         await query.edit_message_text(
             "Выбери язык, на который переводим",
-            reply_markup=language_keyboard(REGISTRY, "live_fixed_dst:set", include_auto=True),
+            reply_markup=language_keyboard(
+                REGISTRY, "live_fixed_dst:set", include_auto=True
+            ),
         )
         return
 
     if data.startswith("live_fixed_dst:set:"):
         value = data.split(":", 2)[2]
         if value == "other":
-            await query.message.reply_text("Добавь язык в data/languages.json и aliases в data/language_aliases.json.")
+            await query.message.reply_text(
+                "Добавь язык в data/languages.json и aliases в data/language_aliases.json."
+            )
             return
         if value == "auto":
-            value = REGISTRY.locale_to_language(update.effective_user.language_code, default="en")
+            value = REGISTRY.locale_to_language(
+                update.effective_user.language_code, default="en"
+            )
         src = state.live_builder.fixed_source_language
         if src == value:
-            await query.message.reply_text("Ты выбрал одинаковые языки. Сменить языки лучше перед стартом.")
+            await query.message.reply_text(
+                "Ты выбрал одинаковые языки. Сменить языки лучше перед стартом."
+            )
             return
         state.live_state.is_active = True
         state.live_state.mode = LiveMode.FIXED.value
@@ -621,27 +733,43 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data.startswith("live_pair_custom:set_a:"):
         value = data.split(":", 2)[2]
         if value == "other":
-            await query.message.reply_text("Добавь язык в data/languages.json и aliases в data/language_aliases.json.")
+            await query.message.reply_text(
+                "Добавь язык в data/languages.json и aliases в data/language_aliases.json."
+            )
             return
         if value == "auto":
-            value = REGISTRY.locale_to_language(update.effective_user.language_code, default="en")
+            value = REGISTRY.locale_to_language(
+                update.effective_user.language_code, default="en"
+            )
         state.live_builder.lang_a = value
         save_state(user_id, state)
         await query.edit_message_text(
             "Выбери второй язык",
-            reply_markup=language_keyboard(REGISTRY, "live_pair_custom:set_b", include_auto=False),
+            reply_markup=language_keyboard(
+                REGISTRY, "live_pair_custom:set_b", include_auto=False
+            ),
         )
         return
 
     if data.startswith("live_pair_custom:set_b:"):
         value = data.split(":", 2)[2]
         if value == "other":
-            await query.message.reply_text("Добавь язык в data/languages.json и aliases в data/language_aliases.json.")
+            await query.message.reply_text(
+                "Добавь язык в data/languages.json и aliases в data/language_aliases.json."
+            )
             return
         a = state.live_builder.lang_a
-        b = REGISTRY.locale_to_language(update.effective_user.language_code, default="en") if value == "auto" else value
+        b = (
+            REGISTRY.locale_to_language(
+                update.effective_user.language_code, default="en"
+            )
+            if value == "auto"
+            else value
+        )
         if a == b:
-            await query.message.reply_text("Для парного режима выбери два разных языка.")
+            await query.message.reply_text(
+                "Для парного режима выбери два разных языка."
+            )
             return
         state.live_state.is_active = True
         state.live_state.mode = LiveMode.PAIRED.value
@@ -655,30 +783,41 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     if data == "live:open:pair":
-        await query.edit_message_text("Выбери режим live translate", reply_markup=live_mode_keyboard())
+        await query.edit_message_text(
+            "Выбери режим live translate", reply_markup=live_mode_keyboard()
+        )
         return
 
     if data == "live:stop:session":
         state.live_state.is_active = False
         reset_transient_state(state)
         save_state(user_id, state)
-        await query.edit_message_text("Live translate выключен.", reply_markup=home_keyboard())
+        await query.edit_message_text(
+            "Live translate выключен.", reply_markup=home_keyboard()
+        )
         return
 
     if data.startswith("live:force_source:"):
         forced = data.split(":", 2)[2]
         original_text = state.live_state.pending_original_text
         if not original_text:
-            await send_error(update, "Нет ожидающего сообщения для повторного выбора языка.")
+            await send_error(
+                update, "Нет ожидающего сообщения для повторного выбора языка."
+            )
             return
         a = state.live_state.lang_a or "en"
         b = state.live_state.lang_b or "ru"
         target = b if forced == a else a
-        translated = await asyncio.to_thread(TRANSLATOR.translate, original_text, forced, target)
+        translated = await asyncio.to_thread(
+            TRANSLATOR.translate, original_text, forced, target
+        )
         state.live_state.pending_original_text = None
         state.live_state.pending_hint = None
         save_state(user_id, state)
-        await query.message.reply_text(build_live_message(forced, target, original_text, translated, REGISTRY), reply_markup=live_active_keyboard())
+        await query.message.reply_text(
+            build_live_message(forced, target, original_text, translated, REGISTRY),
+            reply_markup=live_active_keyboard(),
+        )
         return
 
     if data == "live:cancel:force_source":
@@ -697,8 +836,15 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     state = get_state(user.id)
     message = update.effective_message
 
-    if message.document and message.document.file_name and not is_supported_media(message.document.file_name):
-        await reply_with_home(message, "Не удалось обработать файл. Отправь mp4, mov, m4a, mp3, wav, ogg или aac.")
+    if (
+        message.document
+        and message.document.file_name
+        and not is_supported_media(message.document.file_name)
+    ):
+        await reply_with_home(
+            message,
+            "Не удалось обработать файл. Отправь mp4, mov, m4a, mp3, wav, ogg или aac.",
+        )
         return
 
     max_bytes = CONFIG.max_file_size_mb * 1024 * 1024
@@ -708,7 +854,9 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             size = candidate.file_size
             break
     if size and size > max_bytes:
-        await reply_with_home(message, "Файл слишком большой для текущего локального режима.")
+        await reply_with_home(
+            message, "Файл слишком большой для текущего локального режима."
+        )
         return
 
     status = await message.reply_text(build_status_text("Скачиваю файл..."))
@@ -718,23 +866,34 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     try:
         if state.live_state.is_active and (message.voice or message.audio):
             await status.edit_text(build_status_text("Распознаю live-сообщение..."))
-            source, target, original, translated = await asyncio.to_thread(process_live_pipeline, input_path, state)
+            source, target, original, translated = await asyncio.to_thread(
+                process_live_pipeline, input_path, state
+            )
             if translated is None:
                 state.live_state.pending_original_text = original
                 save_state(user.id, state)
                 await status.edit_text(
                     "Не удалось уверенно определить язык сообщения.\n\n"
                     f"Распознанный текст:\n{original}",
-                    reply_markup=live_force_language_keyboard(state.live_state.lang_a or "en", state.live_state.lang_b or "ru", REGISTRY),
+                    reply_markup=live_force_language_keyboard(
+                        state.live_state.lang_a or "en",
+                        state.live_state.lang_b or "ru",
+                        REGISTRY,
+                    ),
                 )
                 return
             await status.delete()
-            await message.reply_text(build_live_message(source, target, original, translated, REGISTRY), reply_markup=live_active_keyboard())
+            await message.reply_text(
+                build_live_message(source, target, original, translated, REGISTRY),
+                reply_markup=live_active_keyboard(),
+            )
             return
 
         await status.edit_text(build_status_text("Извлекаю аудио..."))
         await status.edit_text(build_status_text("Распознаю речь..."))
-        job = await asyncio.to_thread(process_file_pipeline, input_path, state, user.language_code, user.id)
+        job = await asyncio.to_thread(
+            process_file_pipeline, input_path, state, user.language_code, user.id
+        )
         state.last_job = job
         save_state(user.id, state)
         await status.edit_text(build_status_text("Формирую результат..."))
@@ -756,16 +915,25 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 
-async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def global_error_handler(
+    update: object, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     logger.exception("Unhandled telegram error", exc_info=context.error)
 
-    if not isinstance(update, Update) or update.effective_user is None or update.effective_message is None:
+    if (
+        not isinstance(update, Update)
+        or update.effective_user is None
+        or update.effective_message is None
+    ):
         return
 
     state = get_state(update.effective_user.id)
-    exc = context.error if isinstance(context.error, Exception) else RuntimeError(str(context.error))
+    exc = (
+        context.error
+        if isinstance(context.error, Exception)
+        else RuntimeError(str(context.error))
+    )
     await send_processing_error(update, state, exc)
-
 
 
 def main() -> None:
@@ -775,7 +943,9 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(callback_router))
     media_filter = filters.VIDEO | filters.AUDIO | filters.VOICE | filters.Document.ALL
     application.add_handler(MessageHandler(media_filter, handle_media))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)
+    )
     application.add_error_handler(global_error_handler)
     application.run_polling()
 

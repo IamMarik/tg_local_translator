@@ -89,3 +89,4 @@ storage/settings.json
 *.tar
 *.gz
 
+storage/

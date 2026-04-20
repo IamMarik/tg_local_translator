@@ -78,8 +78,8 @@ def build_live_message(
 ) -> str:
     return (
         f"🌐 Live: {registry.pair_label(source_language, target_language, '→')}\n\n"
-        f"Оригинал {registry.compact_label(source_language)}:\n{original}\n\n"
-        f"Перевод {registry.compact_label(target_language)}:\n{translated}"
+        f"{registry.compact_label(source_language)}\n{original}\n\n"
+        f"{registry.compact_label(target_language)}\n{translated}"
     )
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -52,7 +53,12 @@ logger = logging.getLogger(__name__)
 CONFIG = load_config()
 REGISTRY = LanguageRegistry(CONFIG.data_dir)
 STORAGE = JsonStorage(CONFIG.storage_file)
-TRANSCRIBER = Transcriber(CONFIG.whisper_model_size)
+FILE_TRANSCRIBER = Transcriber(
+    os.getenv("WHISPER_MODEL_SIZE_FILE", CONFIG.whisper_model_size)
+)
+LIVE_TRANSCRIBER = Transcriber(
+    os.getenv("WHISPER_MODEL_SIZE_LIVE", CONFIG.whisper_model_size)
+)
 TRANSLATOR = OllamaTranslator(
     CONFIG.ollama_base_url,
     CONFIG.ollama_translate_model,
@@ -228,7 +234,7 @@ async def download_telegram_file(update: Update, context: ContextTypes.DEFAULT_T
 def process_file_pipeline(input_path: Path, state: UserState, telegram_locale: Optional[str], user_id: int) -> LastJob:
     audio_path = CONFIG.temp_dir / f"{uuid.uuid4().hex}.wav"
     extract_audio_to_wav(input_path, audio_path)
-    transcript_text, source_language = TRANSCRIBER.transcribe(audio_path)
+    transcript_text, source_language = FILE_TRANSCRIBER.transcribe(audio_path)
     if not transcript_text:
         raise RuntimeError("Не удалось распознать речь")
 
@@ -271,13 +277,13 @@ def process_live_pipeline(input_path: Path, state: UserState) -> tuple[str, str,
 
     live = state.live_state
     if live.mode == LiveMode.FIXED.value:
-        original_text, _ = TRANSCRIBER.transcribe(audio_path, language=live.fixed_source_language)
+        original_text, _ = LIVE_TRANSCRIBER.transcribe(audio_path, language=live.fixed_source_language)
         source_language = live.fixed_source_language or "en"
         target_language = live.fixed_target_language or "en"
         translated = TRANSLATOR.translate(original_text, source_language, target_language)
         return source_language, target_language, original_text, translated
 
-    original_text, detected = TRANSCRIBER.transcribe(audio_path, language=None)
+    original_text, detected = LIVE_TRANSCRIBER.transcribe(audio_path, language=None)
     a = live.lang_a or "en"
     b = live.lang_b or "ru"
     if detected not in {a, b}:

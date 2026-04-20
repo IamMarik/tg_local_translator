@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import difflib
 import logging
 import os
 import uuid
@@ -44,7 +45,7 @@ from app.media import MediaError, extract_audio_to_wav
 from app.models import FileMode, LastJob, LiveBuilder, LiveMode, UserState
 from app.state_helpers import resolve_target_language
 from app.storage import JsonStorage
-from app.transcribe import Transcriber
+from app.transcribe import Transcriber, TranscriptionResult
 from app.translate import OllamaError, OllamaTranslator
 
 logging.basicConfig(level=logging.INFO)
@@ -70,16 +71,62 @@ TRANSLATOR = OllamaTranslator(
 )
 
 
-def maybe_correct_transcript(text: str, source_language: Optional[str]) -> str:
+def normalized_change_ratio(before: str, after: str) -> float:
+    if not before and not after:
+        return 0.0
+    return 1.0 - difflib.SequenceMatcher(None, before or "", after or "").ratio()
+
+
+def is_low_confidence_transcript(result: TranscriptionResult, source_language: Optional[str] = None) -> bool:
+    text = (result.text or "").strip()
+    language = source_language or result.language
+
+    if not text:
+        return True
+    if len(text) < 6:
+        return True
+    if result.no_speech_prob > 0.6:
+        return True
+    if language == "vi" and result.language_probability < 0.7:
+        return True
+    if result.avg_logprob < -1.0:
+        return True
+    if result.compression_ratio > 2.4:
+        return True
+    return False
+
+
+def maybe_correct_transcript(result: TranscriptionResult, source_language: Optional[str] = None, always_for_file: bool = False) -> str:
+    text = result.text
+    language = source_language or result.language
+
     if not text or not CONFIG.enable_stt_correction:
         return text
-    if source_language != "vi":
+    if language != "vi":
         return text
+
+    should_run_first_pass = always_for_file or is_low_confidence_transcript(result, source_language=language)
+    if not should_run_first_pass:
+        return text
+
     try:
-        return TRANSLATOR.correct_transcript(text, source_language)
+        corrected = TRANSLATOR.correct_transcript(text, language)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Transcript correction failed: %s", exc)
+        logger.warning("Transcript correction failed on first pass: %s", exc)
         return text
+
+    if not corrected:
+        return text
+
+    if is_low_confidence_transcript(result, source_language=language) and normalized_change_ratio(text, corrected) < 0.03:
+        try:
+            corrected_second = TRANSLATOR.correct_transcript(corrected, language, second_pass=True)
+            if corrected_second:
+                corrected = corrected_second
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Transcript correction failed on second pass: %s", exc)
+
+    return corrected
 
 
 # ---------- texts ----------
@@ -249,10 +296,11 @@ async def download_telegram_file(update: Update, context: ContextTypes.DEFAULT_T
 def process_file_pipeline(input_path: Path, state: UserState, telegram_locale: Optional[str], user_id: int) -> LastJob:
     audio_path = CONFIG.temp_dir / f"{uuid.uuid4().hex}.wav"
     extract_audio_to_wav(input_path, audio_path, audio_filter=CONFIG.audio_filter or None)
-    transcript_text, source_language = FILE_TRANSCRIBER.transcribe(audio_path)
-    if source_language == "vi":
-        transcript_text, source_language = FILE_TRANSCRIBER.transcribe(audio_path, language="vi")
-    transcript_text = maybe_correct_transcript(transcript_text, source_language)
+    file_result = FILE_TRANSCRIBER.transcribe_result(audio_path)
+    if file_result.language == "vi":
+        file_result = FILE_TRANSCRIBER.transcribe_result(audio_path, language="vi")
+    source_language = file_result.language
+    transcript_text = maybe_correct_transcript(file_result, source_language=source_language, always_for_file=True)
     if not transcript_text:
         raise RuntimeError("Не удалось распознать речь")
 
@@ -295,15 +343,16 @@ def process_live_pipeline(input_path: Path, state: UserState) -> tuple[str, str,
 
     live = state.live_state
     if live.mode == LiveMode.FIXED.value:
-        original_text, _ = LIVE_TRANSCRIBER.transcribe(audio_path, language=live.fixed_source_language)
+        live_result = LIVE_TRANSCRIBER.transcribe_result(audio_path, language=live.fixed_source_language)
         source_language = live.fixed_source_language or "en"
-        original_text = maybe_correct_transcript(original_text, source_language)
+        original_text = maybe_correct_transcript(live_result, source_language=source_language)
         target_language = live.fixed_target_language or "en"
         translated = TRANSLATOR.translate(original_text, source_language, target_language)
         return source_language, target_language, original_text, translated
 
-    original_text, detected = LIVE_TRANSCRIBER.transcribe(audio_path, language=None)
-    original_text = maybe_correct_transcript(original_text, detected)
+    live_result = LIVE_TRANSCRIBER.transcribe_result(audio_path, language=None)
+    detected = live_result.language
+    original_text = maybe_correct_transcript(live_result, source_language=detected)
     a = live.lang_a or "en"
     b = live.lang_b or "ru"
     if detected not in {a, b}:

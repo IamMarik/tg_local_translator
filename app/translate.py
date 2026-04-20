@@ -55,15 +55,25 @@ class OllamaTranslator:
         )
         return self._generate(self.summary_model, prompt)
 
-    def correct_transcript(self, text: str, language: Optional[str]) -> str:
+    def correct_transcript(self, text: str, language: Optional[str], second_pass: bool = False) -> str:
         if not text.strip():
             return text
         target = self.registry.label(language) if language else "the source language"
-        prompt = (
-            f"You are correcting automatic speech recognition output in {target}. "
-            "Fix only likely transcription mistakes. Preserve the original meaning. "
-            "Do not paraphrase. Do not add commentary. Return only the corrected text.\n\n"
-            f"{text}"
-        )
+        if second_pass:
+            prompt = (
+                f"You are doing a second-pass correction of automatic speech recognition output in {target}. "
+                "The first-pass result may still contain unlikely or unnatural wording. "
+                "Fix only likely recognition mistakes, preserve the meaning exactly, prefer natural spoken phrasing, "
+                "and return only the corrected text.\n\n"
+                f"{text}"
+            )
+        else:
+            prompt = (
+                f"You are correcting automatic speech recognition output in {target}. "
+                "Fix only likely transcription mistakes. Preserve the original meaning. "
+                "Prefer natural spoken phrasing. Do not paraphrase. Do not add commentary. "
+                "Return only the corrected text.\n\n"
+                f"{text}"
+            )
         corrected = self._generate(self.correction_model, prompt)
         return corrected or text

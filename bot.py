@@ -54,17 +54,32 @@ CONFIG = load_config()
 REGISTRY = LanguageRegistry(CONFIG.data_dir)
 STORAGE = JsonStorage(CONFIG.storage_file)
 FILE_TRANSCRIBER = Transcriber(
-    os.getenv("WHISPER_MODEL_SIZE_FILE", CONFIG.whisper_model_size)
+    CONFIG.whisper_model_size_file,
+    compute_type=CONFIG.whisper_compute_type,
 )
 LIVE_TRANSCRIBER = Transcriber(
-    os.getenv("WHISPER_MODEL_SIZE_LIVE", CONFIG.whisper_model_size)
+    CONFIG.whisper_model_size_live,
+    compute_type=CONFIG.whisper_compute_type,
 )
 TRANSLATOR = OllamaTranslator(
     CONFIG.ollama_base_url,
     CONFIG.ollama_translate_model,
     CONFIG.ollama_summary_model,
     REGISTRY,
+    correction_model=CONFIG.ollama_correction_model,
 )
+
+
+def maybe_correct_transcript(text: str, source_language: Optional[str]) -> str:
+    if not text or not CONFIG.enable_stt_correction:
+        return text
+    if source_language != "vi":
+        return text
+    try:
+        return TRANSLATOR.correct_transcript(text, source_language)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Transcript correction failed: %s", exc)
+        return text
 
 
 # ---------- texts ----------
@@ -233,8 +248,11 @@ async def download_telegram_file(update: Update, context: ContextTypes.DEFAULT_T
 
 def process_file_pipeline(input_path: Path, state: UserState, telegram_locale: Optional[str], user_id: int) -> LastJob:
     audio_path = CONFIG.temp_dir / f"{uuid.uuid4().hex}.wav"
-    extract_audio_to_wav(input_path, audio_path)
+    extract_audio_to_wav(input_path, audio_path, audio_filter=CONFIG.audio_filter or None)
     transcript_text, source_language = FILE_TRANSCRIBER.transcribe(audio_path)
+    if source_language == "vi":
+        transcript_text, source_language = FILE_TRANSCRIBER.transcribe(audio_path, language="vi")
+    transcript_text = maybe_correct_transcript(transcript_text, source_language)
     if not transcript_text:
         raise RuntimeError("Не удалось распознать речь")
 
@@ -273,17 +291,19 @@ def process_file_pipeline(input_path: Path, state: UserState, telegram_locale: O
 
 def process_live_pipeline(input_path: Path, state: UserState) -> tuple[str, str, str, Optional[str]]:
     audio_path = CONFIG.temp_dir / f"{uuid.uuid4().hex}.wav"
-    extract_audio_to_wav(input_path, audio_path)
+    extract_audio_to_wav(input_path, audio_path, audio_filter=CONFIG.audio_filter or None)
 
     live = state.live_state
     if live.mode == LiveMode.FIXED.value:
         original_text, _ = LIVE_TRANSCRIBER.transcribe(audio_path, language=live.fixed_source_language)
         source_language = live.fixed_source_language or "en"
+        original_text = maybe_correct_transcript(original_text, source_language)
         target_language = live.fixed_target_language or "en"
         translated = TRANSLATOR.translate(original_text, source_language, target_language)
         return source_language, target_language, original_text, translated
 
     original_text, detected = LIVE_TRANSCRIBER.transcribe(audio_path, language=None)
+    original_text = maybe_correct_transcript(original_text, detected)
     a = live.lang_a or "en"
     b = live.lang_b or "ru"
     if detected not in {a, b}:

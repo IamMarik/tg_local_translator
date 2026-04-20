@@ -55,6 +55,7 @@ output/
 *.sqlite3
 data/*.json
 storage/
+storage/settings.json
 
 # ⚠️ ВАЖНО
 # если хочешь хранить languages.json — раскомментируй:
@@ -87,4 +88,4 @@ storage/
 *.zip
 *.tar
 *.gz
-/storage
+

@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
@@ -143,9 +143,53 @@ async def render_file_menu(update: Update, state: UserState, edit: bool = True) 
 async def send_error(update: Update, text: str) -> None:
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.message.reply_text(text)
+        await update.callback_query.message.reply_text(text, reply_markup=home_keyboard())
     else:
-        await update.effective_message.reply_text(text)
+        await update.effective_message.reply_text(text, reply_markup=home_keyboard())
+
+
+
+
+def reset_transient_state(state: UserState) -> None:
+    state.live_builder = LiveBuilder()
+    state.live_state.pending_original_text = None
+    state.live_state.pending_hint = None
+
+
+def humanize_processing_error(exc: Exception) -> str:
+    message = str(exc).strip() or exc.__class__.__name__
+    lowered = message.lower()
+
+    if "model is not supported by your version of ollama" in lowered:
+        return (
+            "Текущая версия Ollama слишком старая для выбранной модели.\n"
+            "Обнови Ollama или укажи более простую локальную модель в .env.\n\n"
+            f"Техническая деталь: {message}"
+        )
+    if "not found" in lowered and "model" in lowered:
+        return (
+            "Указанная модель Ollama не найдена локально.\n"
+            "Проверь имя модели в .env и скачай её через ollama pull.\n\n"
+            f"Техническая деталь: {message}"
+        )
+    if "ollama http 500" in lowered:
+        return (
+            "Ollama вернула внутреннюю ошибку.\n"
+            "Часто помогает обновить Ollama или сменить модель в .env.\n\n"
+            f"Техническая деталь: {message}"
+        )
+
+    return message
+
+
+async def reply_with_home(message: Message, text: str) -> None:
+    await message.reply_text(text, reply_markup=home_keyboard())
+
+
+async def send_processing_error(update: Update, state: UserState, exc: Exception) -> None:
+    reset_transient_state(state)
+    save_state(update.effective_user.id, state)
+    await reply_with_home(update.effective_message, f"Ошибка обработки:\n{humanize_processing_error(exc)}")
 
 
 def build_status_text(stage: str) -> str:
@@ -531,7 +575,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if data == "live:stop:session":
         state.live_state.is_active = False
-        state.live_state.pending_original_text = None
+        reset_transient_state(state)
         save_state(user_id, state)
         await query.edit_message_text("Live translate выключен.", reply_markup=home_keyboard())
         return
@@ -569,7 +613,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     message = update.effective_message
 
     if message.document and message.document.file_name and not is_supported_media(message.document.file_name):
-        await message.reply_text("Не удалось обработать файл. Отправь mp4, mov, m4a, mp3, wav, ogg или aac.")
+        await reply_with_home(message, "Не удалось обработать файл. Отправь mp4, mov, m4a, mp3, wav, ogg или aac.")
         return
 
     max_bytes = CONFIG.max_file_size_mb * 1024 * 1024
@@ -579,7 +623,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             size = candidate.file_size
             break
     if size and size > max_bytes:
-        await message.reply_text("Файл слишком большой для текущего локального режима.")
+        await reply_with_home(message, "Файл слишком большой для текущего локального режима.")
         return
 
     status = await message.reply_text(build_status_text("Скачиваю файл..."))
@@ -613,7 +657,11 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await send_file_mode_result(update, context, state)
     except (MediaError, OllamaError, RuntimeError) as exc:
         logger.exception("Processing failed")
-        await status.edit_text(f"Ошибка обработки: {exc}")
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await send_processing_error(update, state, exc)
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -621,6 +669,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "Отправь видео, аудио или voice. Для навигации используй /start.",
         reply_markup=home_keyboard(),
     )
+
+
+async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.exception("Unhandled telegram error", exc_info=context.error)
+
+    if not isinstance(update, Update) or update.effective_user is None or update.effective_message is None:
+        return
+
+    state = get_state(update.effective_user.id)
+    exc = context.error if isinstance(context.error, Exception) else RuntimeError(str(context.error))
+    await send_processing_error(update, state, exc)
+
 
 
 def main() -> None:
@@ -631,6 +691,7 @@ def main() -> None:
     media_filter = filters.VIDEO | filters.AUDIO | filters.VOICE | filters.Document.ALL
     application.add_handler(MessageHandler(media_filter, handle_media))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    application.add_error_handler(global_error_handler)
     application.run_polling()
 
 

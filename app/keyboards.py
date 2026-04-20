@@ -43,7 +43,7 @@ def language_keyboard(registry: LanguageRegistry, callback_prefix: str, include_
     rows = []
     top = registry.top_languages(include_auto=include_auto)
     for item in top:
-        rows.append([InlineKeyboardButton(item["label"], callback_data=f"{callback_prefix}:{item['code']}")])
+        rows.append([InlineKeyboardButton(registry.compact_label(item["code"]), callback_data=f"{callback_prefix}:{item['code']}")])
     rows.append([InlineKeyboardButton("Другой...", callback_data=f"{callback_prefix}:other")])
     rows.append([InlineKeyboardButton("Назад", callback_data="menu:back:home")])
     return InlineKeyboardMarkup(rows)
@@ -62,7 +62,7 @@ def live_popular_pairs_keyboard(registry: LanguageRegistry, mode: str) -> Inline
     for pair in registry.popular_pairs:
         a, b = pair["a"], pair["b"]
         arrow = "↔" if mode == "paired" else "→"
-        title = f"{registry.label(a)} {arrow} {registry.label(b)}"
+        title = registry.pair_label(a, b, arrow)
         rows.append([InlineKeyboardButton(title, callback_data=f"live_pair:set:{a}:{b}")])
     rows.append([InlineKeyboardButton("Другие языки", callback_data="live_pair:custom:start")])
     rows.append([InlineKeyboardButton("Назад", callback_data="menu:open:live")])
@@ -98,7 +98,7 @@ def file_result_keyboard() -> InlineKeyboardMarkup:
 
 def live_force_language_keyboard(a: str, b: str, registry: LanguageRegistry) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"Считать как {registry.label(a)}", callback_data=f"live:force_source:{a}")],
-        [InlineKeyboardButton(f"Считать как {registry.label(b)}", callback_data=f"live:force_source:{b}")],
+        [InlineKeyboardButton(f"Считать как {registry.compact_label(a)}", callback_data=f"live:force_source:{a}")],
+        [InlineKeyboardButton(f"Считать как {registry.compact_label(b)}", callback_data=f"live:force_source:{b}")],
         [InlineKeyboardButton("Отмена", callback_data="live:cancel:force_source")],
     ])

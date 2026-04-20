@@ -132,14 +132,21 @@ def maybe_correct_transcript(result: TranscriptionResult, source_language: Optio
 # ---------- texts ----------
 
 def home_text(state: UserState) -> str:
-    target = resolve_target_language(state, None, REGISTRY) if state.settings.target_language_source == "manual" else REGISTRY.label(state.settings.target_language)
-    return (
-        "Выбери сценарий:\n"
-        "- Файл: обработка видео и аудио с полными текстами\n"
-        "- Live translate: быстрый перевод голосовых сообщений без файлов\n\n"
-        f"Режим файла: {state.settings.file_mode}\n"
-        f"Язык перевода: {target}"
-    )
+    target = resolve_target_language(state, None, REGISTRY) if state.settings.target_language_source == "manual" else state.settings.target_language
+    lines = [
+        "Выбери сценарий:",
+        "- Файл: обработка видео и аудио с полными текстами",
+        "- Live translate: быстрый перевод голосовых сообщений без файлов",
+        "",
+        f"Режим файла: {state.settings.file_mode}",
+        f"Язык перевода: {REGISTRY.compact_label(target)}",
+    ]
+    if state.live_state.is_active:
+        if state.live_state.mode == LiveMode.FIXED.value:
+            lines.extend(["", f"Live статус: {REGISTRY.pair_label(state.live_state.fixed_source_language, state.live_state.fixed_target_language, '→')}"])
+        else:
+            lines.extend(["", f"Live статус: {REGISTRY.pair_label(state.live_state.lang_a, state.live_state.lang_b, '↔')}"])
+    return "\n".join(lines)
 
 
 def file_menu_text(state: UserState) -> str:
@@ -371,13 +378,13 @@ async def send_file_mode_result(update: Update, context: ContextTypes.DEFAULT_TY
 
     mode = state.settings.file_mode
     if mode == FileMode.STANDARD.value:
-        message = build_standard_message(job, CONFIG.preview_chars)
+        message = build_standard_message(job, CONFIG.preview_chars, REGISTRY)
         files = [job.original_txt_path, job.translation_txt_path]
     elif mode == FileMode.TRANSLATION_ONLY.value:
-        message = build_translation_only_message(job, CONFIG.preview_chars)
+        message = build_translation_only_message(job, CONFIG.preview_chars, REGISTRY)
         files = [job.translation_txt_path]
     elif mode == FileMode.ORIGINAL_ONLY.value:
-        message = build_original_only_message(job, CONFIG.preview_chars)
+        message = build_original_only_message(job, CONFIG.preview_chars, REGISTRY)
         files = [job.original_txt_path]
     elif mode == FileMode.SUMMARY.value:
         message = build_summary_message(job, CONFIG.preview_chars)
@@ -499,7 +506,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         job.target_language = target_language
         job.translated_text = translated
         job.summary_text = await asyncio.to_thread(TRANSLATOR.summarize, translated, target_language)
-        job.bilingual_text = build_bilingual_text(job)
+        job.bilingual_text = build_bilingual_text(job, REGISTRY)
         write_text_file(Path(job.translation_txt_path), translated)
         write_text_file(Path(job.bilingual_txt_path), job.bilingual_text)
         state.last_job = job
@@ -537,7 +544,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             state.live_state.fixed_target_language = None
             save_state(user_id, state)
             await query.edit_message_text(
-                f"Live translate включен:\n\n{REGISTRY.label(a)} ↔ {REGISTRY.label(b)}\n\nОтправляй voice или audio.",
+                f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, "↔")}\n\nОтправляй voice или audio.",
                 reply_markup=live_active_keyboard(),
             )
         else:
@@ -549,7 +556,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             state.live_state.lang_b = b
             save_state(user_id, state)
             await query.edit_message_text(
-                f"Live translate включен:\n\n{REGISTRY.label(a)} -> {REGISTRY.label(b)}\n\nОтправляй voice или audio.",
+                f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, "→")}\n\nОтправляй voice или audio.",
                 reply_markup=live_active_keyboard(),
             )
         return
@@ -606,7 +613,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         state.live_state.lang_b = value
         save_state(user_id, state)
         await query.edit_message_text(
-            f"Live translate включен:\n\n{REGISTRY.label(src)} -> {REGISTRY.label(value)}\n\nОтправляй voice или audio.",
+            f"Live translate включен:\n\n{REGISTRY.pair_label(src, value, "→")}\n\nОтправляй voice или audio.",
             reply_markup=live_active_keyboard(),
         )
         return
@@ -642,7 +649,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         state.live_state.lang_b = b
         save_state(user_id, state)
         await query.edit_message_text(
-            f"Live translate включен:\n\n{REGISTRY.label(a)} ↔ {REGISTRY.label(b)}\n\nОтправляй voice или audio.",
+            f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, "↔")}\n\nОтправляй voice или audio.",
             reply_markup=live_active_keyboard(),
         )
         return

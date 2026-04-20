@@ -544,7 +544,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             state.live_state.fixed_target_language = None
             save_state(user_id, state)
             await query.edit_message_text(
-                f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, "↔")}\n\nОтправляй voice или audio.",
+                f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, '↔')}\n\nОтправляй voice или audio.",
                 reply_markup=live_active_keyboard(),
             )
         else:
@@ -556,7 +556,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             state.live_state.lang_b = b
             save_state(user_id, state)
             await query.edit_message_text(
-                f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, "→")}\n\nОтправляй voice или audio.",
+                f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, '→')}\n\nОтправляй voice или audio.",
                 reply_markup=live_active_keyboard(),
             )
         return
@@ -613,7 +613,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         state.live_state.lang_b = value
         save_state(user_id, state)
         await query.edit_message_text(
-            f"Live translate включен:\n\n{REGISTRY.pair_label(src, value, "→")}\n\nОтправляй voice или audio.",
+            f"Live translate включен:\n\n{REGISTRY.pair_label(src, value, '→')}\n\nОтправляй voice или audio.",
             reply_markup=live_active_keyboard(),
         )
         return
@@ -649,7 +649,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         state.live_state.lang_b = b
         save_state(user_id, state)
         await query.edit_message_text(
-            f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, "↔")}\n\nОтправляй voice или audio.",
+            f"Live translate включен:\n\n{REGISTRY.pair_label(a, b, '↔')}\n\nОтправляй voice или audio.",
             reply_markup=live_active_keyboard(),
         )
         return

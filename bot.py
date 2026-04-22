@@ -45,7 +45,10 @@ from app.media import MediaError, extract_audio_to_wav
 from app.models import FileMode, LastJob, LiveBuilder, LiveMode, UserState
 from app.state_helpers import resolve_target_language
 from app.storage import JsonStorage
-from app.transcribe import Transcriber, TranscriptionResult
+from app.transcribe import (
+    TranscriptionResult,
+    build_transcriber_for_profile,
+)
 from app.translate import OllamaError, OllamaTranslator
 
 logging.basicConfig(level=logging.INFO)
@@ -54,14 +57,8 @@ logger = logging.getLogger(__name__)
 CONFIG = load_config()
 REGISTRY = LanguageRegistry(CONFIG.data_dir)
 STORAGE = JsonStorage(CONFIG.storage_file)
-FILE_TRANSCRIBER = Transcriber(
-    CONFIG.whisper_model_size_file,
-    compute_type=CONFIG.whisper_compute_type,
-)
-LIVE_TRANSCRIBER = Transcriber(
-    CONFIG.whisper_model_size_live,
-    compute_type=CONFIG.whisper_compute_type,
-)
+FILE_TRANSCRIBER = build_transcriber_for_profile(CONFIG, 'file')
+LIVE_TRANSCRIBER = build_transcriber_for_profile(CONFIG, 'live')
 TRANSLATOR = OllamaTranslator(
     CONFIG.ollama_base_url,
     CONFIG.ollama_translate_model,
@@ -347,8 +344,6 @@ def process_file_pipeline(
         input_path, audio_path, audio_filter=CONFIG.audio_filter or None
     )
     file_result = FILE_TRANSCRIBER.transcribe_result(audio_path)
-    if file_result.language == "vi":
-        file_result = FILE_TRANSCRIBER.transcribe_result(audio_path, language="vi")
     source_language = file_result.language
     transcript_text = maybe_correct_transcript(
         file_result, source_language=source_language, always_for_file=True
